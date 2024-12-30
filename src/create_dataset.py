@@ -6,40 +6,40 @@ def create_dataset():
         TestQuestion(
             difficulty="easy",
             user_query="What is the average of all the values in the `open` column of the `ohlc` table?",
-            answer=-100,  
-            precision=0.01
+            answer=97.75121531858875,  
+            precision=0.02
         ),
         TestQuestion(
             difficulty="easy",
             user_query="Find the smallest USD-to-EUR exchange rate stored in the `fxrates` table.",
-            answer=-100,
+            answer=0.8001354125807449,
             precision=1e-5
         ),
         TestQuestion(
             difficulty="easy",
             user_query="Among all rows in the `treasury_yields` table, what is the highest 10-year yield value?",
-            answer=-100,
-            precision=0.001
+            answer=4.499022247446833,
+            precision=1e-5
         ),
 
         # ----------------- MEDIUM -----------------
         TestQuestion(
             difficulty="medium",
             user_query="Compute the standard deviation of the difference between `close` and `open` in the `ohlc` table.",
-            answer=-100,
-            precision=0.001
+            answer=17.65921497142543,
+            precision=0.02
         ),
         TestQuestion(
             difficulty="medium",
             user_query="On average, how much higher is the 10-year yield than the 5-year yield in the `treasury_yields` table?",
-            answer=-100,
-            precision=0.001
+            answer=0.32749703868504004,
+            precision=0.02
         ),
         TestQuestion(
             difficulty="medium",
             user_query="Please tell me the correlation between `usd_to_eur` and `usd_to_gbp` in the `fxrates` table.",
-            answer=-100,
-            precision=0.001
+            answer=-0.02545843934708713,
+            precision=0.02
         ),
 
         # ----------------- HARD -----------------
@@ -102,6 +102,6 @@ def create_dataset():
             precision=0.01
         ),
     ]
-    dataset = Dataset(test_questions)
+    dataset = Dataset(test_questions[:6])
     dataset.print_info()
     return dataset

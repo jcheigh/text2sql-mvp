@@ -11,18 +11,19 @@ def find_path(basename='text2sql-mvp'):
         path = os.path.dirname(path)
 
 def get_paths():
-    MAIN_PATH    = find_path()
-    SRC_PATH     = os.path.join(MAIN_PATH, "src")
-    DATA_PATH    = os.path.join(MAIN_PATH, "data")
-    ENV_FPATH    = f'{DATA_PATH}/keys.env'
-    SQL_DB_FPATH = f'{DATA_PATH}/synthetic_data.db'
-
+    MAIN_PATH = find_path()
+    SRC_PATH  = os.path.join(MAIN_PATH, "src")
+    DATA_PATH = os.path.join(MAIN_PATH, "data")
+    ENV_FPATH = f'{DATA_PATH}/keys.env'
+    SQL_FPATH = f'{DATA_PATH}/synthetic_data.db'
+    LOG_FPATH = f'{DATA_PATH}/agent_log.txt' 
     return {
         "main" : MAIN_PATH,
         "src"  : SRC_PATH,
         "data" : DATA_PATH,
         "env"  : ENV_FPATH,
-        "sql"  : SQL_DB_FPATH
+        "sql"  : SQL_FPATH,
+        'log'  : LOG_FPATH
         }
 
 def get_schema_context(config, tbls_to_exclude=[]):
@@ -47,4 +48,4 @@ def extract_query(response, type='sql'):
     else:
         print(f"Extracting query of type {type} failed: returning response.strip():\n{response.strip()}")
         return response.strip()
-    
+

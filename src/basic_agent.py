@@ -5,39 +5,68 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from agent import Agent, Config
-from helper import * 
+from helper import get_paths, extract_query, get_schema_context
 
 class BasicAgent(Agent):
 
+    def __init__(self, config: Config):
+        super().__init__(config)
+        self.path_map = get_paths()  
+
+    def _log(self, message: str):
+        """
+        Helper method to handle logging to both console and a log file.
+        Appends each message as a new line.
+        """
+        print(message)
+        try:
+            with open(self.path_map['log'], 'a') as f:
+                f.write(message + "\n")
+        except Exception as e:
+            print(f"[WARNING] Could not write to log file: {e}")
+
     def run(self, user_query: str) -> float:
         """
-        Takes a user query string, runs it through the get_sql_json3 -> compile_sql -> get_python_prompt3 -> execute_python3 pipeline,
+        Takes a user query string, runs it through:
+          get_sql_json -> compile_sql -> get_python_prompt -> execute_python
         and returns a float result.
         """
-        print('=' * 30)
-        print(f'User Query:\n {user_query}')
+        self._log("=" * 50)
+        self._log("[STEP 0] Starting 'run' method.")
+        self._log(f"User Query:\n{user_query}")
+
         start = time.time()
 
         # 1) Convert the user query to SQL JSON
-        sql_json = self.get_sql_json3(user_query)
+        sql_json = self.get_sql_json(user_query)
+
         # 2) Compile SQL and fetch data into a dataframe
         df = self.compile_sql(sql_json)
+
         # 3) Generate a Python prompt describing the next steps
-        py_prompt = self.get_python_prompt3(user_query, df)
+        py_prompt = self.get_python_prompt(user_query, df)
+
         # 4) Execute the described Python steps and retrieve the result
-        result = self.execute_python3(py_prompt, df)
+        result = self.execute_python(py_prompt, df)
 
         end = time.time()
-        print('=' * 30)
-        print(f'Runtime: {round(end - start, 2)} seconds')
+        self._log("=" * 50)
+        self._log(f"[STEP 5] Completed run in {round(end - start, 2)} seconds.\n")
 
-        if isinstance(result, (int, float)):
-            return float(result)
-        else:
-            raise ValueError("Result is not a numeric value.")
+        # Validate final result is float-like
+        if not isinstance(result, (int, float)):
+            raise ValueError(f"Python Execution Failed: the final result must be a float or int, instead got {type(result)}")
+        
+        return float(result)
 
-    def get_sql_json3(self, user_query):
-        """Get SQL query as JSON structure"""
+    def get_sql_json(self, user_query: str) -> dict:
+        """
+        Takes a user query and asks the LLM to produce a JSON specifying which tables/columns to pull.
+        Validates the JSON structure and join types.
+        """
+        self._log("=" * 50)
+        self._log("[STEP 1] Generating SQL JSON from user query...")
+
         schema_context = get_schema_context(self.config)
         prompt = f'''Given a user query and a SQLite database schema, return ONLY a valid JSON describing the 
         data required to answer the user query. The JSON should be parsable and adhere to proper JSON syntax.
@@ -75,7 +104,8 @@ class BasicAgent(Agent):
         close prices over the last 30 days.
 
         Example Labeled Answer:
-        ```json
+        ```
+        json
         {{
             "tables": {{
                 "ohlc": [
@@ -91,32 +121,44 @@ class BasicAgent(Agent):
                 ["ohlc", "treasury_yields", "date", "date", "inner"]
             ]
         }}
+        ```
 
         Answer for the following user query: {user_query}
         ''' 
-        llm_response = self.config.llm.invoke(prompt).content
-        print('=' * 30)
-        print(f'LLM Response: {llm_response}')
-        sql_json = extract_query(llm_response, type='json')
+
         try:
-            sql_json = json.loads(sql_json)
-            print(f'=' * 30)
-            print(f'SQL PARSED JSON: {sql_json}')
-            valid_join_types = {"inner", "left", "right", "outer"}
-            for join in sql_json.get("joins", []):
-                if len(join) != 5 or join[-1] not in valid_join_types:
-                    raise ValueError(f"Invalid join type or structure: {join}")
-
-            return sql_json
-        except json.JSONDecodeError:
-            raise ValueError("LLM response is not valid JSON.")
+            llm_response = self.config.llm.invoke(prompt).content
         except Exception as e:
-            raise ValueError(f"Error validating SQL JSON: {e}")
+            raise RuntimeError(f"LLM invocation for SQL JSON failed: {e}")
+        self._log("=" * 50)
+        self._log("LLM Response (raw):")
+        self._log(llm_response)
 
-    def compile_sql(self, sql_json: dict) -> str:
+        # Extract JSON from the response
+        try:
+            sql_json_str = extract_query(llm_response, type='json')
+            sql_json = json.loads(sql_json_str)
+        except json.JSONDecodeError as e:
+            raise ValueError("SQL JSON Extraction Failed: LLM response is not valid JSON.")
+        except Exception as e:
+            raise ValueError(f"SQL JSON Extraction Failed: {e}")
+
+        # Validate join types
+        valid_join_types = {"inner", "left", "right", "outer"}
+        for join in sql_json.get("joins", []):
+            if len(join) != 5 or join[-1] not in valid_join_types:
+                raise ValueError(f"SQL JSON Validation Failed: Invalid join type or structure: {join}")
+
+        return sql_json
+
+    def compile_sql(self, sql_json: dict) -> pd.DataFrame:
         """
-        Compiles a JSON definition of tables and joins into a SQLite SELECT query.
+        Compiles a JSON definition of tables and joins into a SQLite SELECT query,
+        executes it, and returns a pandas DataFrame.
         """
+        self._log("=" * 50)
+        self._log("[STEP 2] Compiling and running SQL...")
+
         tables = sql_json.get("tables", {})
         joins = sql_json.get("joins", [])
 
@@ -126,9 +168,8 @@ class BasicAgent(Agent):
             for original, alias in column_pairs:
                 select_columns.append(f'"{table_name}"."{original}" AS "{alias}"')
 
-        # If no tables at all, we can't form a valid query
-        if not tables:
-            raise ValueError("No tables were provided. At least one table is required.")
+        if not select_columns:
+            raise ValueError("No columns provided in 'tables' field of SQL JSON.")
 
         columns_str = ",\n    ".join(select_columns)
 
@@ -136,7 +177,6 @@ class BasicAgent(Agent):
         if joins:
             base_table = joins[0][0]
             from_clause = f'"{base_table}"'
-
             for (tbl_left, tbl_right, left_on, right_on, join_type) in joins:
                 join_type_upper = join_type.upper() + " JOIN"
                 from_clause += (
@@ -144,21 +184,39 @@ class BasicAgent(Agent):
                     f'ON "{tbl_left}"."{left_on}" = "{tbl_right}"."{right_on}"'
                 )
         else:
+            # If no joins, just take the first table
             base_table = list(tables.keys())[0]
             from_clause = f'"{base_table}"'
 
         # 3) Put it all together
         query = f'''
-    SELECT
-        {columns_str}
-    FROM {from_clause}'''.strip()
-        print(f'=' * 30)
-        print(f'SQL Query: {query}')
-        df = pd.read_sql(query, self.config.engine)
-        print(f'Query Results:\n{df.to_string()}')
+SELECT
+    {columns_str}
+FROM {from_clause}
+'''.strip()
+        self._log("=" * 50)
+        self._log("Generated SQL Query:")
+        self._log(query)
+
+        try:
+            df = pd.read_sql(query, self.config.engine)
+        except Exception as e:
+            raise RuntimeError(f"SQL Execution Failed: {e}")
+
+        self._log("=" * 50)
+        self._log("[STEP 2] SQL Query executed. Here's df.head():")
+        self._log(df.head().to_string())
+
         return df
 
-    def get_python_prompt3(self, user_query, df):
+    def get_python_prompt(self, user_query: str, df: pd.DataFrame) -> str:
+        """
+        Given the user query and a pandas DataFrame, produce a textual prompt describing
+        how to perform the Python computations that answer the query.
+        """
+        self._log("=" * 50)
+        self._log("[STEP 3] Generating Python prompt...")
+
         prompt = f''' 
         Given a user query and a pandas dataframe with the relevant data, only write 
         CODE DESCRIPTION: CODE DESCRIPTION, where CODE DESCRIPTION is a prompt that 
@@ -185,15 +243,31 @@ class BasicAgent(Agent):
         df.head(): {df.head()}
         User Query: {user_query}
         '''
-        py_prompt = self.config.llm.invoke(prompt).content
-        print(f'Generated Python Prompt: {py_prompt}')
+        try:
+            py_prompt = self.config.llm.invoke(prompt).content
+        except Exception as e:
+            raise RuntimeError(f"LLM invocation for Python prompt failed: {e}")
+
+        if not isinstance(py_prompt, str) or not py_prompt.strip():
+            raise ValueError("Python Prompt Generation Failed: Did not receive a valid string from LLM.")
+        
+        self._log("=" * 50)
+        self._log("[STEP 3] Completed: Python prompt generated.")
+        self._log("Generated Python Prompt:")
+        self._log(py_prompt)
+
         return py_prompt
 
-    def execute_python3(self, py_prompt, df):
-        """generate and execute python"""
-        py_code = f''' 
+    def execute_python(self, py_prompt: str, df: pd.DataFrame):
+        """
+        Generate Python code based on the py_prompt, execute it, and return the 'result' variable.
+        """
+        self._log("=" * 50)
+        self._log("[STEP 4] Generating and executing Python code...")
+
+        py_code_request = f''' 
         Given a pandas dataframe df and a description to perform a specific computation, 
-        generate syntactically correct python code wrapped in ```python QUERY`` that takes 
+        generate syntactically correct python code wrapped in python QUERY` that takes 
         the raw dataframe and performs any computations to fully answer the user's query. 
         Assume access to NumPy (v{np.__version__}), Pandas (v{pd.__version__}) and that 
         the dataframe is called df. The output of the code should be the variable that 
@@ -211,21 +285,41 @@ class BasicAgent(Agent):
         to compute the correlation between treasury_yield_7_year and stock close. 
 
         Example Labeled Answer: 
-        ``` python
+        ```
+        python
         ### calculate corr btwn 7yr tsy and stock closes 
         df     = df.sort_values('date')[:30]
-        result = df['treasury_yield_7_year'].corr(df['stock_close'])
+        result = df['treasury_yield_7_year'].corr(df['stock_close'])    
         ```
         df.head(): {df.head()}
         Prompt: {py_prompt}
         '''
-        code = extract_query(self.config.llm.invoke(py_code).content, type='python')
-        print(f'Python Code:\n {code}')
-        
-        namespace = {'pd': pd, 'np': np, 'df': df}
-        exec(code, namespace)
-        result = namespace.get('result', "No result variable found")
-        print(f'Result:\n{result}')
+        try:
+            llm_response = self.config.llm.invoke(py_code_request).content
+        except Exception as e:
+            raise RuntimeError(f"LLM invocation for Python code generation failed: {e}")
+
+        # Extract python code block
+        try:
+            code = extract_query(llm_response, type='python')
+        except Exception as e:
+            raise ValueError(f"Python Code Extraction Failed: {e}")
+
+        self._log("=" * 50)
+        self._log("Generated Python Code:")
+        self._log(code)
+
+        namespace = {'pd': pd, 'np': np, 'df': df, 'plt': plt}
+        try:
+            exec(code, namespace)
+        except Exception as e:
+            raise RuntimeError(f"Python Execution Failed: error executing python: {e}")
+
+        result = namespace.get('result', None)
+        self._log("=" * 50)
+        self._log("[STEP 4] Result from executed code:")
+        self._log(str(result))
+
         return result
 
 if __name__ == '__main__':
@@ -234,7 +328,8 @@ if __name__ == '__main__':
     user_query = '''For s in [1,2], of the days where the stock price 
     movement := close - open was more than s std deviations from the mean, look at the distribution 
     of 7yr tsy yield - 5yr tsy yield. To visualize this, assume access to matplotlib.pyplot as plt and 
-    make a 2 plots, the left where s = 1 and a histogram of 7yr - 5yr tsy yields with lines at 25 percentile,
+    make 2 plots, the left where s = 1 and a histogram of 7yr - 5yr tsy yields with lines at 25 percentile,
     50th percentile, 75th, and then right same with s=2. Then return the median when s=1. 
     '''
-    agent.run(user_query)
+    result = agent.run(user_query)
+    print("Final numeric result:", result)
