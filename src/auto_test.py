@@ -1,5 +1,7 @@
-from agent import Agent
+from agent import Agent, Config
 from dataset import Dataset 
+from create_dataset import create_dataset
+from basic_agent import BasicAgent
 
 class AutoTest:
     def __init__(self, agent: Agent, dataset: Dataset):
@@ -7,8 +9,10 @@ class AutoTest:
         :param agent: An Agent instance that implements .run(user_query) -> float
         :param dataset: A Dataset containing TestQuestions
         """
-        self.agent = agent
-        self.dataset = dataset
+        self.agent     = agent
+        self.dataset   = dataset
+        self.correct   = []
+        self.incorrect = []
 
     def run_tests(self):
         """
@@ -24,14 +28,20 @@ class AutoTest:
             model_answer = self.agent.run(tq.user_query)
             error = abs(model_answer - tq.answer)
             if error < tq.precision:
-                results[tq] = 1
+                print(f'Agent got Test Question correct!')
+                self.correct.append(tq)
                 correct_count += 1
             else:
-                results[tq] = 0
+                print(f'Agent got Test Question incorrect')
+                self.incorrect.append(tq)
 
         score = correct_count / len(questions) if questions else 0
         print(f"The model scored {score * 100:.1f}% on this testing set.")
         return results
 
 if __name__ == '__main__':
-    pass 
+    config  = Config()
+    agent   = BasicAgent(config)
+    dataset = create_dataset()
+    tester  = AutoTest(agent, dataset)
+    tester.run_tests()

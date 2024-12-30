@@ -30,7 +30,7 @@ class Dataset:
             )
         return random.sample(self.questions, n)
 
-    def info(self):
+    def print_info(self):
         """
         Print a nicely formatted report on:
           1) total questions
