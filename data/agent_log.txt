@@ -1961,3 +1961,286 @@ result
 ==================================================
 [STEP 5] Completed run in 45.31 seconds.
 
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+For the day with the lowest ratio of 5y tsy yield to 10y tsy yield 
+    among days where USD to GBP was greater than 0.75, calculate the percentage difference 
+    between the EUR equivalent of the close price and the JPY equivalent of the open price 
+    in the ohlc table.
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+For the day with the lowest ratio of 5y tsy yield to 10y tsy yield 
+    among days where USD to GBP was greater than 0.75, calculate the percentage difference 
+    between the EUR equivalent of the close price and the JPY equivalent of the open price 
+    in the ohlc table.
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+LLM Response (raw):
+```json
+{
+    "tables": {
+        "ohlc": [
+            ["date", "ohlc_date", "True"],
+            ["open", "ohlc_open", "True"],
+            ["close", "ohlc_close", "True"]
+        ],
+        "fxrates": [
+            ["date", "fxrates_date", "False"],
+            ["usd_to_eur", "usd_to_eur", "True"],
+            ["usd_to_gbp", "usd_to_gbp", "True"],
+            ["usd_to_jpy", "usd_to_jpy", "True"]
+        ],
+        "treasury_yields": [
+            ["date", "tsy_date", "False"],
+            ["yield_5_year", "tsy_yield_5_year", "True"],
+            ["yield_10_year", "tsy_yield_10_year", "True"]
+        ]
+    },
+    "joins": [
+        ["ohlc", "fxrates", "ohlc_date", "date", "inner"],
+        ["ohlc", "treasury_yields", "ohlc_date", "date", "inner"]
+    ]
+}
+```
+==================================================
+[STEP 2] Compiling and running SQL...
+==================================================
+Generated SQL Query:
+SELECT
+        "ohlc"."date" AS "ohlc_date",
+    "ohlc"."open" AS "ohlc_open",
+    "ohlc"."close" AS "ohlc_close",
+    "fxrates"."usd_to_eur" AS "usd_to_eur",
+    "fxrates"."usd_to_gbp" AS "usd_to_gbp",
+    "fxrates"."usd_to_jpy" AS "usd_to_jpy",
+    "treasury_yields"."yield_5_year" AS "tsy_yield_5_year",
+    "treasury_yields"."yield_10_year" AS "tsy_yield_10_year"
+    FROM "ohlc"
+INNER JOIN "fxrates" ON "ohlc"."ohlc_date" = "fxrates"."date"
+INNER JOIN "treasury_yields" ON "ohlc"."ohlc_date" = "treasury_yields"."date"
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+On the day where the absolute difference between 7y tsy yield 
+    and 10y tsy yield was maximum, compute the ratio of the USD equivalent of the difference 
+    between high and low prices in the ohlc table to the product of USD:EUR and USD:JPY 
+    for that day.
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+LLM Response (raw):
+```json
+{
+    "tables": {
+        "ohlc": [
+            ["date", "ohlc_date", "False"],
+            ["high", "ohlc_high", "True"],
+            ["low", "ohlc_low", "True"]
+        ],
+        "treasury_yields": [
+            ["date", "tsy_date", "False"],
+            ["yield_7_year", "tsy_yield_7_year", "True"],
+            ["yield_10_year", "tsy_yield_10_year", "True"]
+        ],
+        "fxrates": [
+            ["date", "fx_date", "False"],
+            ["usd_to_eur", "usd_to_eur", "True"],
+            ["usd_to_jpy", "usd_to_jpy", "True"]
+        ]
+    },
+    "joins": [
+        ["ohlc", "treasury_yields", "date", "date", "inner"],
+        ["ohlc", "fxrates", "date", "date", "inner"]
+    ]
+}
+```
+==================================================
+[STEP 2] Compiling and running SQL...
+==================================================
+Generated SQL Query:
+SELECT
+        "ohlc"."high" AS "ohlc_high",
+    "ohlc"."low" AS "ohlc_low",
+    "treasury_yields"."yield_7_year" AS "tsy_yield_7_year",
+    "treasury_yields"."yield_10_year" AS "tsy_yield_10_year",
+    "fxrates"."usd_to_eur" AS "usd_to_eur",
+    "fxrates"."usd_to_jpy" AS "usd_to_jpy"
+    FROM "ohlc"
+INNER JOIN "treasury_yields" ON "ohlc"."date" = "treasury_yields"."date"
+INNER JOIN "fxrates" ON "ohlc"."date" = "fxrates"."date"
+==================================================
+[STEP 2] SQL Query executed. Here's df.head():
+    ohlc_high   ohlc_low  tsy_yield_7_year  tsy_yield_10_year  usd_to_eur  usd_to_jpy
+0  122.243837  55.445553          3.533141           2.420872    0.955216  178.670871
+1  123.517684  66.159055          2.461981           2.566896    0.953731  149.179569
+2  128.192394  55.334713          4.226303           3.327936    0.988302  145.902530
+3  125.600137  50.781083          1.773818           4.022134    0.898221  127.671146
+4  125.857878  52.017952          3.660253           3.628586    0.890543  134.947739
+==================================================
+[STEP 3] Generating Python prompt...
+==================================================
+[STEP 3] Completed: Python prompt generated.
+Generated Python Prompt:
+CODE DESCRIPTION: 
+Overall Goal: Identify the day with the maximum absolute difference between 7-year and 10-year treasury yields, and compute the specified ratio for that day.
+Step 1: Calculate the absolute difference between 'tsy_yield_7_year' and 'tsy_yield_10_year' for each row in the dataframe.
+Step 2: Identify the row with the maximum absolute difference calculated in the previous step.
+Step 3: For the identified day, calculate the difference between 'ohlc_high' and 'ohlc_low'.
+Step 4: Convert the difference from Step 3 into USD terms by multiplying with 'usd_to_eur' and 'usd_to_jpy' for the same day to get the USD equivalent.
+Step 5: Calculate the product of 'usd_to_eur' and 'usd_to_jpy' for the identified day.
+Step 6: Divide the USD equivalent obtained in Step 4 by the product of the exchange rates from Step 5 to get the desired ratio.
+Step 7: Output the date identified in Step 2 along with the ratio computed in Step 6.
+==================================================
+[STEP 4] Generating and executing Python code...
+==================================================
+Generated Python Code:
+# Step 1: Calculate the absolute difference between 'tsy_yield_7_year' and 'tsy_yield_10_year'
+df['abs_diff'] = (df['tsy_yield_7_year'] - df['tsy_yield_10_year']).abs()
+
+# Step 2: Identify the row with the maximum absolute difference
+max_diff_row = df.loc[df['abs_diff'].idxmax()]
+
+# Step 3: Calculate the difference between 'ohlc_high' and 'ohlc_low'
+ohlc_diff = max_diff_row['ohlc_high'] - max_diff_row['ohlc_low']
+
+# Step 4: Convert the difference from Step 3 into USD terms
+usd_equivalent = ohlc_diff * max_diff_row['usd_to_eur'] * max_diff_row['usd_to_jpy']
+
+# Step 5: Calculate the product of 'usd_to_eur' and 'usd_to_jpy' for the identified day
+exchange_product = max_diff_row['usd_to_eur'] * max_diff_row['usd_to_jpy']
+
+# Step 6: Divide the USD equivalent obtained in Step 4 by the product of the exchange rates from Step 5
+ratio = usd_equivalent / exchange_product
+
+# Step 7: Output the date identified in Step 2 along with the ratio computed in Step 6
+result = {'date': max_diff_row.name, 'ratio': ratio}
+result
+==================================================
+[STEP 4] Result from executed code:
+{'date': 693, 'ratio': 63.7944783568403}
+==================================================
+[STEP 5] Completed run in 19.84 seconds.
+
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+"For the day where the sum of usd_to_eur, usd_to_gbp, and usd_to_jpy 
+    was closest to 150, calculate the weighted average of the EUR equivalent of open, the GBP 
+    equivalent of close, and the JPY equivalent of high, with weights being the corresponding 
+    treasury yields
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+LLM Response (raw):
+```json
+{
+    "tables": {
+        "fxrates": [
+            ["date", "fx_date", "True"],
+            ["usd_to_eur", "usd_to_eur", "True"],
+            ["usd_to_gbp", "usd_to_gbp", "True"],
+            ["usd_to_jpy", "usd_to_jpy", "True"]
+        ],
+        "ohlc": [
+            ["date", "ohlc_date", "True"],
+            ["open", "eur_equivalent_open", "True"],
+            ["close", "gbp_equivalent_close", "True"],
+            ["high", "jpy_equivalent_high", "True"]
+        ],
+        "treasury_yields": [
+            ["date", "tsy_date", "False"],
+            ["yield_5_year", "weight_eur", "True"],
+            ["yield_7_year", "weight_gbp", "True"],
+            ["yield_10_year", "weight_jpy", "True"]
+        ]
+    },
+    "joins": [
+        ["fxrates", "ohlc", "date", "date", "inner"],
+        ["fxrates", "treasury_yields", "date", "date", "inner"]
+    ]
+}
+```
+==================================================
+[STEP 2] Compiling and running SQL...
+==================================================
+Generated SQL Query:
+SELECT
+        "fxrates"."date" AS "fx_date",
+    "fxrates"."usd_to_eur" AS "usd_to_eur",
+    "fxrates"."usd_to_gbp" AS "usd_to_gbp",
+    "fxrates"."usd_to_jpy" AS "usd_to_jpy",
+    "ohlc"."date" AS "ohlc_date",
+    "ohlc"."open" AS "eur_equivalent_open",
+    "ohlc"."close" AS "gbp_equivalent_close",
+    "ohlc"."high" AS "jpy_equivalent_high",
+    "treasury_yields"."yield_5_year" AS "weight_eur",
+    "treasury_yields"."yield_7_year" AS "weight_gbp",
+    "treasury_yields"."yield_10_year" AS "weight_jpy"
+    FROM "fxrates"
+INNER JOIN "ohlc" ON "fxrates"."date" = "ohlc"."date"
+INNER JOIN "treasury_yields" ON "fxrates"."date" = "treasury_yields"."date"
+==================================================
+[STEP 2] SQL Query executed. Here's df.head():
+               fx_date  usd_to_eur  usd_to_gbp  usd_to_jpy            ohlc_date  eur_equivalent_open  gbp_equivalent_close  jpy_equivalent_high  weight_eur  weight_gbp  weight_jpy
+0  2020-01-01 00:00:00    0.955216    0.744213  178.670871  2020-01-01 00:00:00            97.847047             92.244252           122.243837    1.545694    3.533141    2.420872
+1  2020-01-02 00:00:00    0.953731    0.778589  149.179569  2020-01-02 00:00:00            92.102546             95.321208           123.517684    2.245038    2.461981    2.566896
+2  2020-01-03 00:00:00    0.988302    0.885252  145.902530  2020-01-03 00:00:00           106.361000             86.266867           128.192394    1.397994    4.226303    3.327936
+3  2020-01-06 00:00:00    0.898221    0.776084  127.671146  2020-01-06 00:00:00            80.813697            109.121746           125.600137    2.529819    1.773818    4.022134
+4  2020-01-07 00:00:00    0.890543    0.760646  134.947739  2020-01-07 00:00:00           110.707861            116.741645           125.857878    1.763754    3.660253    3.628586
+==================================================
+[STEP 3] Generating Python prompt...
+==================================================
+[STEP 3] Completed: Python prompt generated.
+Generated Python Prompt:
+CODE DESCRIPTION: 
+Overall Goal: Identify the day where the sum of currency exchange rates (usd_to_eur, usd_to_gbp, usd_to_jpy) is closest to 150 and compute the weighted average of the EUR, GBP, and JPY equivalents (open, close, high) using the provided weights (weight_eur, weight_gbp, weight_jpy).
+
+Step 1: Create a new column in df called 'sum_fx_rates' that is the sum of the columns 'usd_to_eur', 'usd_to_gbp', and 'usd_to_jpy'.
+
+Step 2: Find the row in df where 'sum_fx_rates' is closest to 150. This can be done by subtracting 150 from 'sum_fx_rates' and taking the absolute value, then using the idxmin() function to find the index of the minimum value.
+
+Step 3: Retrieve the 'weight_eur', 'weight_gbp', and 'weight_jpy' for the identified date.
+
+Step 4: Retrieve the 'eur_equivalent_open', 'gbp_equivalent_close', and 'jpy_equivalent_high' for the identified date.
+
+Step 5: Calculate the weighted average of the EUR, GBP, and JPY equivalents by multiplying each equivalent by its corresponding weight and then summing these products. The formula for the weighted average is:
+
+(weight_eur * eur_equivalent_open + weight_gbp * gbp_equivalent_close + weight_jpy * jpy_equivalent_high) / (weight_eur + weight_gbp + weight_jpy)
+
+This will give the weighted average for the day where the sum of the currency exchange rates is closest to 150.
+==================================================
+[STEP 4] Generating and executing Python code...
+==================================================
+Generated Python Code:
+### Identify the day with sum of fx rates closest to 150 and compute the weighted average
+# Step 1: Create a new column for the sum of fx rates
+df['sum_fx_rates'] = df['usd_to_eur'] + df['usd_to_gbp'] + df['usd_to_jpy']
+
+# Step 2: Find the row with the 'sum_fx_rates' closest to 150
+idx_closest = (df['sum_fx_rates'] - 150).abs().idxmin()
+
+# Step 3: Retrieve the weights for the identified date
+weight_eur = df.loc[idx_closest, 'weight_eur']
+weight_gbp = df.loc[idx_closest, 'weight_gbp']
+weight_jpy = df.loc[idx_closest, 'weight_jpy']
+
+# Step 4: Retrieve the EUR, GBP, and JPY equivalents for the identified date
+eur_equivalent_open = df.loc[idx_closest, 'eur_equivalent_open']
+gbp_equivalent_close = df.loc[idx_closest, 'gbp_equivalent_close']
+jpy_equivalent_high = df.loc[idx_closest, 'jpy_equivalent_high']
+
+# Step 5: Calculate the weighted average
+result = (weight_eur * eur_equivalent_open + 
+          weight_gbp * gbp_equivalent_close + 
+          weight_jpy * jpy_equivalent_high) / (weight_eur + weight_gbp + weight_jpy)
+==================================================
+[STEP 4] Result from executed code:
+105.96540916529612
+==================================================
+[STEP 5] Completed run in 22.21 seconds.
+

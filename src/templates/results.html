@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Query Results</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f3f3f3;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .log-container {
+      background-color: #fff;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    pre {
+      background-color: #f7f7f7;
+      padding: 10px;
+      overflow-x: auto;
+    }
+    .result {
+      font-size: 1.2em;
+      color: #2c3e50;
+      background-color: #fff;
+      padding: 10px;
+      border-radius: 5px;
+      display: inline-block;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    a {
+      text-decoration: none;
+      color: #4CAF50;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Agent Execution Trace</h1>
+
+  <div class="log-container">
+    <pre>
+{% for line in logs %}
+{{ line }}
+{% endfor %}
+    </pre>
+  </div>
+
+  {% if result is not none %}
+    <p><strong>Final numeric result:</strong><br/>
+    <span class="result">{{ result }}</span></p>
+  {% endif %}
+
+  <p><a href="/">Ask Another Query</a></p>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Text2SQL Agent</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f3f3f3;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 0;
+    }
+    .description {
+      margin-top: 5px;
+      color: #555;
+    }
+    form {
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    textarea {
+      width: 100%;
+      max-width: 800px;
+      height: 80px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+    }
+    .schema-section {
+      background-color: #fff;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 30px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    pre {
+      background-color: #f7f7f7;
+      padding: 10px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Text2SQL Agent</h1>
+  <div class="description">
+    <p>Use plain English queries to derive data insights from your underlying database.<br/>
+    Simply ask a question and the agent will generate and execute the necessary SQL, returning numeric answers.</p>
+  </div>
+
+  <form action="/run_agent" method="POST">
+    <label for="user_query"><strong>Your analytics question:</strong></label><br/>
+    <textarea id="user_query" name="user_query" placeholder="e.g. 'What is the average 7-year treasury yield over the last 30 days?'"></textarea><br/>
+    <button type="submit">Go</button>
+  </form>
+
+  <div class="schema-section">
+    <h2>Database Schema & Sample Data</h2>
+    <p><em>Below is an overview of the available tables and some sample rows. Use these to guide your questions!</em></p>
+    <pre>{{ schema_context }}</pre>
+  </div>
+</body>
+</html>
