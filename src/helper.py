@@ -34,10 +34,13 @@ def get_schema_context(config, tbls_to_exclude=[]):
     for table in tables:
         if table not in tbls_to_exclude:
             table_info = db.get_table_info([table])
+            print(table_info)
             schema_lines.append(f"Table: {table}\n{table_info}\n")
 
     schema_context = ("DATABASE SCHEMA:\n" + "\n".join(schema_lines))
     return schema_context
+
+
 
 def extract_query(response, type='sql'):
     pattern = rf"```{type}\s+([\s\S]*?)\s+```"

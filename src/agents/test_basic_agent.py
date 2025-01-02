@@ -8,11 +8,11 @@ import sys
 sys.path.append('../')
 from agent import Agent, Config
 from helper import get_paths, extract_query, get_schema_context
-
 class BasicAgent(Agent):
 
-    def __init__(self, config: Config, log_data=True):
+    def __init__(self, config: Config, log_data=True, tbls_to_exclude=[]):
         super().__init__(config)
+        self.schema   = get_schema_context(config, tbls_to_exclude)
         self.log_data = log_data
         self.path_map = get_paths()  
 
@@ -63,106 +63,6 @@ class BasicAgent(Agent):
         
         return float(result)
 
-    def validate_sql_json(self, sql_json: dict):
-        """
-        Validates a JSON structure that specifies:
-        1) A list of tables with name, alias, and columns
-        2) A list of joins describing how the tables are joined
-
-        - Checks if the referenced tables and columns exist in the schema.
-        - Checks if join column types match.
-        - Joins must use one of the valid join types: {"inner", "left", "right", "outer"}.
-
-        Returns:
-            (True, "") if valid
-            (False, <error_message>) if invalid
-        """
-        # 1) Basic structure checks
-        if "tables" not in sql_json:
-            return False, "Missing top-level 'tables' key."
-        if "joins" not in sql_json:
-            return False, "Missing top-level 'joins' key."
-
-        # Gather known table aliases for join checks
-        table_aliases = {}
-
-        # 2) Validate each table + columns
-        for tbl_obj in sql_json["tables"]:
-            # required fields: name, alias, columns
-            if "name" not in tbl_obj or "alias" not in tbl_obj or "columns" not in tbl_obj:
-                return False, "Each table object must have 'name', 'alias', and 'columns'."
-
-            tbl_name = tbl_obj["name"]
-            tbl_alias = tbl_obj["alias"]
-            if tbl_name not in self.schema:
-                return False, f"Table '{tbl_name}' not found in schema."
-
-            table_aliases[tbl_alias] = tbl_name
-
-            # Validate columns
-            for col in tbl_obj["columns"]:
-                if "original_name" not in col:
-                    return False, "Each column object must have 'original_name'."
-                if "alias" not in col:
-                    return False, "Each column object must have 'alias'."
-                if "keep" not in col:
-                    return False, "Each column object must have 'keep' (boolean)."
-
-                col_name = col["original_name"]
-                if col_name not in self.schema[tbl_name]["columns"]:
-                    return False, f"Column '{col_name}' does not exist in table '{tbl_name}'."
-
-        # 3) Validate joins
-        valid_join_types = {"inner", "left", "right", "outer"}
-        for j in sql_json["joins"]:
-            # required fields: left_table_alias, right_table_alias, left_column, right_column, join_type
-            required_keys = [
-                "left_table_alias",
-                "right_table_alias",
-                "left_column",
-                "right_column",
-                "join_type"
-            ]
-            for k in required_keys:
-                if k not in j:
-                    return False, f"Join object must have '{k}'."
-
-            lt_alias = j["left_table_alias"]
-            rt_alias = j["right_table_alias"]
-            lt_col = j["left_column"]
-            rt_col = j["right_column"]
-            jtype = j["join_type"]
-
-            # Check table alias existence
-            if lt_alias not in table_aliases:
-                return False, f"Join references unknown table alias '{lt_alias}'."
-            if rt_alias not in table_aliases:
-                return False, f"Join references unknown table alias '{rt_alias}'."
-
-            # Check valid join type
-            if jtype not in valid_join_types:
-                return False, f"Invalid join type '{jtype}'. Must be one of {valid_join_types}."
-
-            # Check column existence in schema
-            lt_table = table_aliases[lt_alias]
-            rt_table = table_aliases[rt_alias]
-            if lt_col not in self.schema[lt_table]["columns"]:
-                return False, f"Column '{lt_col}' not found in table '{lt_table}'."
-            if rt_col not in self.schema[rt_table]["columns"]:
-                return False, f"Column '{rt_col}' not found in table '{rt_table}'."
-
-            # Optional: check column types match
-            lt_type = self.schema[lt_table]["columns"][lt_col]
-            rt_type = self.schema[rt_table]["columns"][rt_col]
-            if lt_type != rt_type:
-                return False, (
-                    f"Join column type mismatch: '{lt_table}.{lt_col}' is '{lt_type}' while "
-                    f"'{rt_table}.{rt_col}' is '{rt_type}'."
-                )
-
-        # If everything is valid
-        return True, ""
-
     def get_sql_json(self, user_query: str) -> dict:
         """
         Takes a user query and asks the LLM to produce a JSON specifying which tables/columns to pull.
@@ -171,7 +71,7 @@ class BasicAgent(Agent):
         self._log("=" * 50)
         self._log("[STEP 1] Generating SQL JSON from user query...")
 
-        schema_context = get_schema_context(self.config)
+        schema_context = self.schema
         prompt = f'''Given a user query and a SQLite database schema, return ONLY a valid JSON describing the 
         data required to answer the user query. The JSON should be parsable and adhere to proper JSON syntax.
 
@@ -183,8 +83,6 @@ class BasicAgent(Agent):
         5. Ensure new column names are self-explanatory and clear for what they are, not what they will be.
         For example do treasury_yield_7_year instead of something like 7y_yield, but don't do
         treasury_price_7_year, even if eventually that column will be transformed into price.
-        6. keep is relevant for cols where joins are performed- for example if there is an inner join between
-        two dates, these columns are needed to perform the join, but one is irrelevant in the end (one is keep=False)
 
         Answer ONLY with a JSON in this format:
         {{
@@ -195,8 +93,7 @@ class BasicAgent(Agent):
       "columns": [
         {{
           "original_name": "<col_name_in_db>",
-          "alias": "<col_alias_in_output>",
-          "keep": true // or false
+          "alias": "<col_alias_in_output>"
         }}
       ]
     }}
@@ -207,12 +104,16 @@ class BasicAgent(Agent):
       "right_table_alias": "<alias>",
       "left_column": "<col_name_in_db>", 
       "right_column": "<col_name_in_db>",
-      "join_type": "inner" // or outer, left, right
+      "join_type": "inner" // or outer, left, right,
+      "keep_left": true // or false to merge then drop left_column,
+      "keep_right": true // or fasle to merge then drop right_coumn
     }}
   ]
 }}
         Constraints:
         - Join types must be one of: "inner", "left", "right", "outer".
+        - Join keep left/right should only keep absolutely necessary columns- for example
+        two identical columns shoudn't both be kept
         - Join column names must be the OLD name, not the NEW name 
         - Joins will be applied in order of the json. Note the order does matter here. For example 
         if the first join is inner(A,B) then next is outer(B, C), what is really happening is 
@@ -234,13 +135,11 @@ class BasicAgent(Agent):
         "columns": [
             {{
             "original_name": "date",
-            "alias": "ohlc_date",
-            "keep": true
+            "alias": "ohlc_date"
             }},
             {{
             "original_name": "close",
-            "alias": "stock_close",
-            "keep": true
+            "alias": "stock_close"
             }}
         ]
         }},
@@ -250,13 +149,11 @@ class BasicAgent(Agent):
         "columns": [
             {{
             "original_name": "date",
-            "alias": "tsy_date",
-            "keep": false
+            "alias": "tsy_date"
             }},
             {{
             "original_name": "yield_7_year",
-            "alias": "tsy_yield_7_year",
-            "keep": true
+            "alias": "tsy_yield_7_year"
             }}
         ]
         }}
@@ -267,7 +164,9 @@ class BasicAgent(Agent):
         "right_table_alias": "treasury_yields",
         "left_column": "date",
         "right_column": "date",
-        "join_type": "inner"
+        "join_type": "inner",
+        "left_keep": true,
+        "right_keep: false
         }}
     ]
     }}
@@ -287,97 +186,149 @@ class BasicAgent(Agent):
             sql_json_str = extract_query(llm_response, type='json')
             sql_json = json.loads(sql_json_str)
         except Exception as e:
-            raise ValueError(f"SQL JSON Extraction Failed (2nd attempt): {e}")
-
-        is_valid, err_msg = self.validate_sql_json(sql_json)
-        if not is_valid:
-            raise ValueError(f"LLM failed to fix the JSON: {err_msg}")
+            raise ValueError(f"SQL JSON Extraction Failed: {e}")
 
         return sql_json
 
     
-    def compile_sql(self, sql_json: dict) -> str:
+    def compile_sql(self, sql_json: dict) -> pd.DataFrame:
         """
-        Transforms the validated JSON (with no filters) into a SQL SELECT statement.
+        Transforms the validated JSON (with optional keep flags in the joins) into a SQL SELECT statement,
+        executes it, and returns the resulting DataFrame.
 
-        The JSON must have:
+        The JSON structure must have:
         {
-        "tables": [
-            {
-            "name": "ohlc",
-            "alias": "ohlc",
-            "columns": [
+            "tables": [
                 {
-                "original_name": "date",
-                "alias": "ohlc_date",
-                "keep": true
+                    "name": "ohlc",
+                    "alias": "ohlc",
+                    "columns": [
+                        {
+                            "original_name": "date",
+                            "alias": "ohlc_date"
+                        },
+                        ...
+                    ]
                 },
                 ...
+            ],
+            "joins": [
+                {
+                    "left_table_alias": "ohlc",
+                    "right_table_alias": "treasury_yields",
+                    "left_column": "date",
+                    "right_column": "date",
+                    "join_type": "inner",
+                    "left_keep": true,
+                    "right_keep": false
+                }
             ]
-            },
-            ...
-        ],
-        "joins": [
-            {
-            "left_table_alias": "ohlc",
-            "right_table_alias": "treasury_yields",
-            "left_column": "date",
-            "right_column": "date",
-            "join_type": "inner"
-            }
-        ]
         }
 
         Returns:
-            A string representing the SQL query (SELECT + FROM + JOIN).
+            A DataFrame with the queried data.
         """
-        # 1) Build SELECT clause
-        select_parts = []
-        table_alias_map = {}
+
+        self._log("=" * 50)
+        self._log("[STEP 2] Compiling and running SQL...")
+
+        # 1) Organize the tables in a more flexible structure
+        #    so we can remove columns if keep flags are false.
+        table_map = {}  # alias -> { "name": <table_name>, "columns": [ {original_name, alias}, ... ] }
         for tbl in sql_json["tables"]:
-            table_alias_map[tbl["alias"]] = tbl["name"]
-            for col in tbl["columns"]:
-                if col["keep"] is True:
-                    original = col["original_name"]
-                    alias = col["alias"]
-                    select_parts.append(f'"{tbl["alias"]}"."{original}" AS "{alias}"')
+            table_map[tbl["alias"]] = {
+                "name": tbl["name"],
+                "columns": tbl["columns"][:]  # copy to manipulate
+            }
+
+        # 2) Process each join's keep flags
+        joins = sql_json.get("joins", [])
+        for j in joins:
+            lt_alias = j["left_table_alias"]
+            rt_alias = j["right_table_alias"]
+            lt_col   = j["left_column"]
+            rt_col   = j["right_column"]
+
+            # If left_keep = false, remove the left_column from that table's columns
+            if j.get("left_keep") is False:
+                # find the column in table_map[lt_alias]["columns"] that has original_name == lt_col
+                filtered_cols = []
+                for c in table_map[lt_alias]["columns"]:
+                    if c["original_name"] == lt_col:
+                        # skip it
+                        continue
+                    filtered_cols.append(c)
+                table_map[lt_alias]["columns"] = filtered_cols
+
+            # If right_keep = false, remove the right_column from that table's columns
+            if j.get("right_keep") is False:
+                filtered_cols = []
+                for c in table_map[rt_alias]["columns"]:
+                    if c["original_name"] == rt_col:
+                        continue
+                    filtered_cols.append(c)
+                table_map[rt_alias]["columns"] = filtered_cols
+
+        # 3) Build SELECT clause from the (potentially updated) table_map
+        select_parts = []
+        for tbl_alias, tbl_info in table_map.items():
+            for col in tbl_info["columns"]:
+                original = col["original_name"]
+                alias = col["alias"]
+                select_parts.append(f'"{tbl_alias}"."{original}" AS "{alias}"')
 
         if not select_parts:
-            raise ValueError("No columns to keep in the final query.")
+            raise ValueError("No columns to select after applying keep flags.")
 
         select_clause = ",\n    ".join(select_parts)
 
-        # 2) Build FROM + JOIN
-        joins = sql_json.get("joins", [])
+        # 4) Build FROM + JOIN
+        #    We still rely on the same join logic, but note we might have removed certain columns.
         if len(joins) == 0:
             # No joins: just use the first table
-            if len(sql_json["tables"]) == 0:
+            all_tables = sql_json["tables"]
+            if len(all_tables) == 0:
                 raise ValueError("No tables available to compile SQL.")
-            first_tbl = sql_json["tables"][0]
+            first_tbl = all_tables[0]
             from_clause = f'"{first_tbl["name"]}" "{first_tbl["alias"]}"'
         else:
-            # Use the first join's left_table_alias as the "base"
+            # Use the first join's left_table_alias as the base
             base_alias = joins[0]["left_table_alias"]
-            base_table_name = table_alias_map[base_alias]
+            base_table_name = table_map[base_alias]["name"]
             from_clause = f'"{base_table_name}" "{base_alias}"'
+
             for j in joins:
-                right_table_name = table_alias_map[j["right_table_alias"]]
+                right_alias = j["right_table_alias"]
+                right_table_name = table_map[right_alias]["name"]
                 join_type = j["join_type"].upper()
                 from_clause += (
-                    f'\n{join_type} JOIN "{right_table_name}" "{j["right_table_alias"]}" '
+                    f'\n{join_type} JOIN "{right_table_name}" "{right_alias}" '
                     f'ON "{j["left_table_alias"]}"."{j["left_column"]}" = '
                     f'"{j["right_table_alias"]}"."{j["right_column"]}"'
                 )
 
-        # 3) Construct final SQL
+        # 5) Construct final SQL
         query = f"""
-    SELECT
-        {select_clause}
-    FROM {from_clause}
-    """.strip()
+        SELECT
+            {select_clause}
+        FROM {from_clause}
+        """.strip()
 
-        return query
+        self._log("=" * 50)
+        self._log("Generated SQL Query:")
+        self._log(query)
 
+        # 6) Execute the query
+        try:
+            df = pd.read_sql(query, self.config.engine)
+        except Exception as e:
+            raise RuntimeError(f"SQL Execution Failed: {e}")
+
+        self._log("=" * 50)
+        self._log("[STEP 2] SQL Query executed. Here's df.head():")
+        self._log(df.head().to_string())
+
+        return df
 
     def get_python_prompt(self, user_query: str, df: pd.DataFrame) -> str:
         """
@@ -516,10 +467,6 @@ if __name__ == '__main__':
     # make 2 plots, the left where s = 1 and a histogram of 7yr - 5yr tsy yields with lines at 25 percentile,
     # 50th percentile, 75th, and then right same with s=2. Then return the median when s=1. 
     # '''
-    for user_query in user_queries:
-        try:
-            result = agent.run(user_query)  
-            print("Final numeric result:", result)
-        except Exception as e:
-            print(e)
-        print(f'/' * 50)
+    for user_query in user_queries[:1]:
+        result = agent.run(user_query)  
+        print("Final numeric result:", result)
