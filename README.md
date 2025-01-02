@@ -3,7 +3,7 @@ Basic text2sql
 
 ### Instructions:
 - Store OPENAI_API_KEY={key} in data/keys.env
-- Run python basic_agent.py 
+- Run python deploy.py, then basic_agent.py 
 ### Subgoal 1- Max performance on small dataset, clear questions
 - Timeline: January 6th
 - Add more testing questions 
