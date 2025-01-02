@@ -1,8 +1,6 @@
 from flask import Flask, request, render_template
-import os
-
-from basic_agent import BasicAgent, Config
-from helper import get_schema_context  # Make sure this import is correct
+from agents.basic_agent import BasicAgent, Config
+from helper import get_schema_context  
 
 app = Flask(__name__)
 

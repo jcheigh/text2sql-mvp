@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from helper import get_paths
 
-def create_data():
+def create_db():
     ### creates synthetic_data.db 
     db_fpath = get_paths()["sql"]
     conn     = sqlite3.connect(db_fpath)
@@ -73,4 +73,4 @@ def create_data():
     print(f"Database created successfully at: {db_fpath}")
 
 if __name__ == '__main__':
-    create_data()
+    create_db()

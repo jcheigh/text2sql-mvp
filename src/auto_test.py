@@ -1,7 +1,7 @@
-from agent import Agent, Config
 from dataset import Dataset 
-from create_dataset import create_dataset
-from basic_agent import BasicAgent
+from agents.agent import Agent, Config
+from agents.basic_agent import BasicAgent
+
 
 class AutoTest:
     def __init__(self, agent: Agent, dataset: Dataset):
@@ -42,6 +42,6 @@ class AutoTest:
 if __name__ == '__main__':
     config  = Config()
     agent   = BasicAgent(config)
-    dataset = create_dataset()
+    dataset = Dataset([])
     tester  = AutoTest(agent, dataset)
     tester.run_tests()
