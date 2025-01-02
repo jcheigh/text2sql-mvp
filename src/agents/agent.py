@@ -3,8 +3,11 @@ from sqlalchemy import create_engine
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from dotenv import load_dotenv
-from helper import get_paths
 from abc import ABC, abstractmethod
+
+import sys 
+sys.path.append('../')
+from helper import get_paths
 
 class Config:
     """SQL agent config"""
