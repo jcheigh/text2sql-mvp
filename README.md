@@ -6,8 +6,6 @@ Basic text2sql
 - Run python basic_agent.py 
 ### Subgoal 1- Max performance on small dataset, clear questions
 - Timeline: January 6th
-- Refactor with SQLPythonAgent 
-    - Subclass of Agent with SQL to Python workflow
 - Change SQL JSON form
 - Refactor with LangGraph, Structured Outputs
 - Python Step 1- Data Exploration (cycle where LLM can do stuff like df.head() on its own)

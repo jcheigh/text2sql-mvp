@@ -685,3 +685,184 @@ result = {'date': df_sub.loc[closest_index, 'fxrates_date'], 'weighted_average':
 ==================================================
 [STEP 5] Completed run in 43.55 seconds.
 
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+For the day with the lowest ratio of 5y tsy yield to 10y tsy yield 
+    among days where USD to GBP was greater than 0.75, calculate the percentage difference 
+    between the EUR equivalent of the close price and the JPY equivalent of the open price 
+    in the ohlc table.
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+LLM Response (raw):
+```json
+{
+    "tables": {
+        "fxrates": [
+            ["date", "fxrates_date", "False"],
+            ["usd_to_eur", "eur_conversion_rate", "True"],
+            ["usd_to_gbp", "gbp_conversion_rate", "True"],
+            ["usd_to_jpy", "jpy_conversion_rate", "True"]
+        ],
+        "ohlc": [
+            ["date", "ohlc_date", "True"],
+            ["open", "usd_open_price", "True"],
+            ["close", "usd_close_price", "True"]
+        ],
+        "treasury_yields": [
+            ["date", "tsy_date", "False"],
+            ["yield_5_year", "tsy_yield_5_year", "True"],
+            ["yield_10_year", "tsy_yield_10_year", "True"]
+        ]
+    },
+    "joins": [
+        ["fxrates", "treasury_yields", "date", "date", "inner"],
+        ["ohlc", "fxrates", "date", "date", "inner"]
+    ]
+}
+```
+==================================================
+[STEP 2] Compiling and running SQL...
+==================================================
+Generated SQL Query:
+SELECT
+        "fxrates"."usd_to_eur" AS "eur_conversion_rate",
+    "fxrates"."usd_to_gbp" AS "gbp_conversion_rate",
+    "fxrates"."usd_to_jpy" AS "jpy_conversion_rate",
+    "ohlc"."date" AS "ohlc_date",
+    "ohlc"."open" AS "usd_open_price",
+    "ohlc"."close" AS "usd_close_price",
+    "treasury_yields"."yield_5_year" AS "tsy_yield_5_year",
+    "treasury_yields"."yield_10_year" AS "tsy_yield_10_year"
+    FROM "fxrates"
+INNER JOIN "treasury_yields" ON "fxrates"."date" = "treasury_yields"."date"
+INNER JOIN "fxrates" ON "ohlc"."date" = "fxrates"."date"
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+On the day where the absolute difference between 7y tsy yield 
+    and 10y tsy yield was maximum, compute the ratio of the USD equivalent of the difference 
+    between high and low prices in the ohlc table to the product of USD:EUR and USD:JPY 
+    for that day.
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+For the day with the lowest ratio of 5y tsy yield to 10y tsy yield 
+    among days where USD to GBP was greater than 0.75, calculate the percentage difference 
+    between the EUR equivalent of the close price and the JPY equivalent of the open price 
+    in the ohlc table.
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+LLM Response (raw):
+```json
+{
+  "tables": [
+    {
+      "name": "treasury_yields",
+      "alias": "tsy",
+      "columns": [
+        {
+          "original_name": "date",
+          "alias": "tsy_date",
+          "keep": true
+        },
+        {
+          "original_name": "yield_5_year",
+          "alias": "tsy_yield_5_year",
+          "keep": true
+        },
+        {
+          "original_name": "yield_10_year",
+          "alias": "tsy_yield_10_year",
+          "keep": true
+        }
+      ]
+    },
+    {
+      "name": "fxrates",
+      "alias": "fx",
+      "columns": [
+        {
+          "original_name": "date",
+          "alias": "fx_date",
+          "keep": false
+        },
+        {
+          "original_name": "usd_to_eur",
+          "alias": "usd_to_eur",
+          "keep": true
+        },
+        {
+          "original_name": "usd_to_gbp",
+          "alias": "usd_to_gbp",
+          "keep": true
+        },
+        {
+          "original_name": "usd_to_jpy",
+          "alias": "usd_to_jpy",
+          "keep": true
+        }
+      ]
+    },
+    {
+      "name": "ohlc",
+      "alias": "ohlc",
+      "columns": [
+        {
+          "original_name": "date",
+          "alias": "ohlc_date",
+          "keep": false
+        },
+        {
+          "original_name": "open",
+          "alias": "stock_open",
+          "keep": true
+        },
+        {
+          "original_name": "close",
+          "alias": "stock_close",
+          "keep": true
+        }
+      ]
+    }
+  ],
+  "joins": [
+    {
+      "left_table_alias": "tsy",
+      "right_table_alias": "fx",
+      "left_column": "date",
+      "right_column": "date",
+      "join_type": "inner"
+    },
+    {
+      "left_table_alias": "fx",
+      "right_table_alias": "ohlc",
+      "left_column": "fx_date",
+      "right_column": "date",
+      "join_type": "inner"
+    }
+  ]
+}
+```
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+On the day where the absolute difference between 7y tsy yield 
+    and 10y tsy yield was maximum, compute the ratio of the USD equivalent of the difference 
+    between high and low prices in the ohlc table to the product of USD:EUR and USD:JPY 
+    for that day.
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+"For the day where the sum of usd_to_eur, usd_to_gbp, and usd_to_jpy 
+    was closest to 150, calculate the weighted average of the EUR equivalent of open, the GBP 
+    equivalent of close, and the JPY equivalent of high, with weights being the corresponding 
+    treasury yields
+==================================================
+[STEP 1] Generating SQL JSON from user query...
