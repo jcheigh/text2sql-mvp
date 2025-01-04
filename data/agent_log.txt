@@ -3879,3 +3879,30 @@ result
 ==================================================
 [STEP 5] Completed run in 38.41 seconds.
 
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+For the day with the lowest ratio of 5y tsy yield to 10y tsy yield 
+    among days where USD to GBP was greater than 0.75, calculate the percentage difference 
+    between the EUR equivalent of the close price and the JPY equivalent of the open price 
+    in the ohlc table.
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+On the day where the absolute difference between 7y tsy yield 
+    and 10y tsy yield was maximum, compute the ratio of the USD equivalent of the difference 
+    between high and low prices in the ohlc table to the product of USD:EUR and USD:JPY 
+    for that day.
+==================================================
+[STEP 1] Generating SQL JSON from user query...
+==================================================
+[STEP 0] Starting 'run' method.
+User Query:
+"For the day where the sum of usd_to_eur, usd_to_gbp, and usd_to_jpy 
+    was closest to 150, calculate the weighted average of the EUR equivalent of open, the GBP 
+    equivalent of close, and the JPY equivalent of high, with weights being the corresponding 
+    treasury yields
+==================================================
+[STEP 1] Generating SQL JSON from user query...
