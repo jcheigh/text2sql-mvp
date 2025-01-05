@@ -3,6 +3,8 @@ Basic text2sql
 
 ### Instructions:
 - Store OPENAI_API_KEY={key} in data/keys.env
+- Add LangSmith env variables for better monitoring 
+    - LANGCHAIN_TRACING_V2, LANGCHAIN_ENDPOINT, LANGCHAIN_API_KEY, LANGCHAIN_PROJECT
 - Run python deploy.py, then basic_agent.py 
 ### Subgoal 1- Max performance on small dataset, clear questions
 - Timeline: January 6th
